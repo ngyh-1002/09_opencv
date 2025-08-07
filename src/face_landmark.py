@@ -5,7 +5,7 @@ import dlib
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor('./shape_predictor_68_face_landmarks.dat')
 
-img = cv2.imread("../img/like_lenna.png")
+img = cv2.imread("../img/man_face.jpg")
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 # 얼굴 영역 검출 --- ②
 faces = detector(gray)

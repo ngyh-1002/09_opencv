@@ -1,3 +1,4 @@
 data/*.xml
 src/faces/*
 src/unsigned/*
+src/*.dat
