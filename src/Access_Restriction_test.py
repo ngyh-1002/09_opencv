@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os, glob
 import csv
+import webbrowser
 from datetime import datetime
 
 # 미등록자 얼굴 저장 함수
@@ -13,17 +14,18 @@ def save_unknown_face(img):
     cv2.imwrite(filename, img)
     print(f"[저장됨] 미등록자 얼굴: {filename}")
 
-# 변수 설정 ---①
+# 변수 설정
 base_dir = './faces'
 min_accuracy = 85
 log_file = 'visitor_log.csv'
+spreadsheet_url = 'https://docs.google.com/spreadsheets/d/1cFewCY-mAs0gRMiv9RikLlRmFap6Mfl_yvUAFb6sfxE/edit?pli=1&gid=1649354833#gid=1649354833'
 
-# LBP 얼굴 인식기 및 케스케이드 얼굴 검출기 생성 및 훈련 모델 읽기 ---②
+# LBP 얼굴 인식기 및 학습 모델
 face_classifier = cv2.CascadeClassifier('../data/haarcascade_frontalface_default.xml')
 model = cv2.face.LBPHFaceRecognizer_create()
 model.read(os.path.join(base_dir, 'all_face.xml'))
 
-# 디렉토리 이름으로 사용자 이름과 아이디 매핑 정보 생성 ---③
+# 이름과 ID 매핑
 dirs = [d for d in glob.glob(base_dir + "/*") if os.path.isdir(d)]
 names = dict([])
 for dir in dirs:
@@ -31,32 +33,39 @@ for dir in dirs:
     name, id = dir.split('_')
     names[int(id)] = name
 
-# 기록된 사람 확인용 딕셔너리 (오늘 날짜 기준)
+# 오늘 날짜 기준으로 방문자 기록 중복 방지
 today = datetime.now().strftime('%Y-%m-%d')
 recorded_today = set()
 
-# CSV 파일에 방문자 기록 저장 함수
+# 방문자 기록 함수
 def log_visitor(name):
     now = datetime.now()
     date_str = now.strftime('%Y-%m-%d')
     time_str = now.strftime('%H:%M:%S')
     entry = (name, date_str, time_str)
-    
-    if name not in recorded_today:
+
+    if name == 'Unknown':
+        with open(log_file, mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(entry)
+        print(f"[LOG] 미등록자 기록됨: {entry}")
+    elif name not in recorded_today:
         with open(log_file, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(entry)
         recorded_today.add(name)
-        print(f"[LOG] 방문자 기록됨: {entry}")
+        print(f"[LOG] 등록자 기록됨: {entry}")
+        webbrowser.open(spreadsheet_url, new=2)
 
-# CSV 파일 없으면 헤더 만들기
+# 로그 파일이 없으면 헤더 작성
 if not os.path.exists(log_file):
     with open(log_file, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(['Name', 'Date', 'Time'])
 
-# 카메라 캡처 시작
+# 카메라 시작
 cap = cv2.VideoCapture(0)
+
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -65,7 +74,7 @@ while cap.isOpened():
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_classifier.detectMultiScale(gray, 1.3, 5)
-    
+
     for (x, y, w, h) in faces:
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
         face = frame[y:y + h, x:x + w]
@@ -82,30 +91,26 @@ while cap.isOpened():
                 msg = f'{person_name}({accuracy}%)'
                 log_visitor(person_name)
                 allow_access = True
+                # 카메라 종료
+                cap.release()
+                cv2.destroyAllWindows()
+                exit()
             else:
                 msg = 'Unknown'
                 log_visitor('Unknown')
                 save_unknown_face(face)
+                # 카메라 종료
+                cap.release()
+                cv2.destroyAllWindows()
+                exit()
         else:
             msg = 'Unknown'
             log_visitor('Unknown')
             save_unknown_face(face)
-
-        # 텍스트 출력 처리
-        if allow_access:
-            txt, base = cv2.getTextSize(msg, cv2.FONT_HERSHEY_PLAIN, 1, 3)
-            cv2.rectangle(frame, (x, y - base - txt[1]), (x + txt[0], y + txt[1]), (0, 255, 0), -1)
-            cv2.putText(frame, msg, (x, y), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 2, cv2.LINE_AA)
-        else:
-            warning_msg = "접근 허가가 없습니다"
-            txt, base = cv2.getTextSize(warning_msg, cv2.FONT_HERSHEY_DUPLEX, 1.5, 2)
-            center_x = x + w // 2 - txt[0] // 2
-            center_y = y - 10
-            cv2.rectangle(frame, (center_x - 5, center_y - txt[1] - 5),
-                          (center_x + txt[0] + 5, center_y + txt[1] + 5),
-                          (0, 0, 255), -1)
-            cv2.putText(frame, warning_msg, (center_x, center_y),
-                        cv2.FONT_HERSHEY_DUPLEX, 1.5, (255, 255, 255), 2, cv2.LINE_AA)
+            # 카메라 종료
+            cap.release()
+            cv2.destroyAllWindows()
+            exit()
 
     cv2.imshow('Visitor Recognition', frame)
     if cv2.waitKey(1) == 27:  # ESC
