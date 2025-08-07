@@ -1,9 +1,8 @@
 import cv2
 import dlib
 
-# 얼굴 검출기와 랜드마크 검출기 생성 --- ①
+# 얼굴 검출기 생성 --- ①
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor('./shape_predictor_68_face_landmarks.dat')
 
 cap = cv2.VideoCapture(0)
 #cap.set(cv2.cv2.CAP_PROP_FRAME_WIDTH, 480)
